@@ -14,6 +14,7 @@ from app.schemas import (
     LoginRequest, RegisterRequest, ChangePasswordRequest,
     AuthResponse, MeResponse,
 )
+from pydantic import BaseModel, EmailStr
 from app.services.auth_service import (
     hash_password, verify_password, create_token,
     get_current_user,
