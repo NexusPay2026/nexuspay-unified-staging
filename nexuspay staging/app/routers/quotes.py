@@ -203,3 +203,100 @@ def _to_response(q: Quote) -> QuoteResponse:
         status=q.status,
         pdf_url=q.pdf_url or "",
     )
+
+
+# ── AI-POWERED DEAL ANALYSIS ─────────────────────────────────
+from app.services.pricing_ai import analyze_deal, validate_pricing
+
+
+@router.post("/quotes/analyze")
+async def analyze_quote(
+    payload: QuoteCreate,
+    user: dict = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    require_internal(user)
+
+    role = user.get("role", "employee")
+    risk = payload.risk_level or "low"
+
+    # Calculate residuals server-side
+    s = payload
+    vol = s.volume or 0
+    tx = s.transactions or 0
+    mu = s.markup_pct or 0
+    au = s.auth_sell or 0
+
+    # Beacon Traditional
+    bt_rev = vol*(mu/100) + tx*au + tx*s.avs_sell + 30*s.batch_sell + s.monthly_sell + s.transarmor_sell
+    bt_cost = vol*0.0002 + tx*0.04 + tx*0.04 + 30*0.04 + 10 + 5
+    bt_res = (bt_rev - bt_cost) * 0.75
+
+    # Beacon Flex
+    bf_res = (vol*(mu/100)) * 0.50
+
+    # Maverick
+    mv_rates = {"low":(0.0275,0.0002,0.01,0.01,10,5,0.90),
+                "moderate":(0.04,0.0002,0.03,0.025,10,5,0.80),
+                "high":(0.06,0.0035,0.05,0.04,20,5,0.60)}
+    rt = mv_rates.get(risk, mv_rates["low"])
+    mv_rev = vol*(mu/100) + tx*au + tx*s.avs_sell + 30*s.batch_sell + s.monthly_sell + s.pci_sell
+    mv_cost = vol*rt[1] + tx*rt[0] + tx*rt[2] + 30*rt[3] + rt[4] + rt[5]
+    if s.use_gateway:
+        mv_cost += tx*0.03 + 5
+    mv_res = (mv_rev - mv_cost) * rt[6]
+
+    # Validate pricing against role floors
+    validation = validate_pricing(
+        role=role, risk=risk, markup=mu, auth=au,
+        program="all", state="CO", pricing_model="interchange_plus"
+    )
+
+    # Run AI analysis
+    try:
+        analysis = await analyze_deal(
+            merchant_name=s.merchant_name or "",
+            vertical=s.vertical or "Other",
+            risk_level=risk,
+            volume=vol,
+            transactions=tx,
+            markup=mu,
+            auth=au,
+            monthly=s.monthly_sell or 0,
+            bt_residual=bt_res,
+            bf_residual=bf_res,
+            mv_residual=mv_res,
+            multi_loc=False,
+            locations=1,
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
+
+    return {
+        "analysis": analysis,
+        "validation": validation,
+        "residuals": {
+            "beacon_trad": round(bt_res, 2),
+            "beacon_flex": round(bf_res, 2),
+            "maverick": round(mv_res, 2),
+        },
+        "provider_count": analysis.get("_providerCount", 0),
+        "confidence": analysis.get("_confidence", "single"),
+    }
+
+
+@router.post("/quotes/validate")
+async def validate_quote_pricing(
+    markup: float = Query(...),
+    auth: float = Query(...),
+    risk: str = Query("low"),
+    program: str = Query("all"),
+    state: str = Query("CO"),
+    pricing_model: str = Query("interchange_plus"),
+    user: dict = Depends(get_current_user),
+):
+    require_internal(user)
+    role = user.get("role", "employee")
+    result = validate_pricing(role, risk, markup, auth, program, state, pricing_model)
+    return result
+
