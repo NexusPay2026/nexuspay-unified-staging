@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine, Base, database
-from app.routers import auth, merchants, users, visitors, audit, health, storage, quotes
+from app.routers import auth, merchants, users, visitors, audit, health, storage, quotes, pricing_tool
 
 # â”€â”€ Lifespan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @asynccontextmanager
@@ -76,5 +76,6 @@ app.include_router(visitors.router,  tags=["Visitors / Leads"])
 app.include_router(audit.router,     prefix="/api",  tags=["AI Audit"])
 app.include_router(storage.router,   prefix="/api",  tags=["Storage / R2"])
 app.include_router(quotes.router,    prefix="/api",  tags=["Pricing Quotes"])
+app.include_router(pricing_tool.router, tags=["Pricing Tool"])
 
 
