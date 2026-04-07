@@ -124,13 +124,13 @@ async def _call_proposal(prompt):
 
 @router.post("/extract")
 async def extract_statement(req: ExtractRequest, user=Depends(get_current_user)):
-    if user.role not in ("admin", "employee"):
+    if user.get("role") not in ("admin", "employee"):
         raise HTTPException(403, "Employee or admin access required")
     return await _call_extract(req.file_base64, req.media_type)
 
 @router.post("/proposal")
 async def generate_proposal(req: ProposalRequest, user=Depends(get_current_user)):
-    if user.role not in ("admin", "employee"):
+    if user.get("role") not in ("admin", "employee"):
         raise HTTPException(403, "Employee or admin access required")
     prompt = f"""Write a merchant pricing proposal for NexusPay (veteran-owned). Clean text only, no markdown.
 Merchant: {req.business_name}
