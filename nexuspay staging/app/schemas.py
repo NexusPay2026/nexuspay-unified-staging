@@ -215,3 +215,64 @@ class UploadURLResponse(BaseModel):
 class DownloadURLResponse(BaseModel):
     download_url: str
     expires_in: int = 3600
+
+
+# ================================================================
+#  PRICING QUOTES
+# ================================================================
+class QuoteCreate(BaseModel):
+    merchant_name: str = ""
+    vertical: str = "Other"
+    risk_level: str = "low"
+    volume: float = 0
+    transactions: int = 0
+    markup_pct: float = 0
+    auth_sell: float = 0
+    avs_sell: float = 0
+    batch_sell: float = 0
+    monthly_sell: float = 0
+    transarmor_sell: float = 0
+    pci_sell: float = 0
+    has_amex: bool = False
+    amex_volume: float = 0
+    use_gateway: bool = False
+    results: dict = {}
+    notes: str = ""
+
+
+class QuoteResponse(BaseModel):
+    id: int
+    created_by: str
+    created_at: str
+    merchant_name: str
+    vertical: str
+    risk_level: str
+    volume: float
+    transactions: int
+    markup_pct: float
+    auth_sell: float
+    avs_sell: float
+    batch_sell: float
+    monthly_sell: float
+    transarmor_sell: float
+    pci_sell: float
+    has_amex: bool
+    amex_volume: float
+    use_gateway: bool
+    beacon_trad_residual: float
+    beacon_trad_margin: float
+    beacon_flex_residual: float
+    beacon_flex_margin: float
+    maverick_residual: float
+    maverick_tnr: float
+    maverick_risk: str
+    best_program: str
+    best_residual: float
+    notes: str
+    status: str
+    pdf_url: str
+
+
+class QuoteListResponse(BaseModel):
+    quotes: list[QuoteResponse]
+    total: int

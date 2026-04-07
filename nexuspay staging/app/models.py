@@ -140,3 +140,50 @@ class AuditJob(Base):
 Index("ix_merchants_owner", Merchant.owner_email)
 Index("ix_visitors_created", Visitor.created_at.desc())
 Index("ix_audit_jobs_user", AuditJob.user_id)
+
+
+# ================================================================
+#  PRICING QUOTES
+# ================================================================
+class Quote(Base):
+    __tablename__ = "quotes"
+
+    id = Column(Integer, primary_key=True, index=True)
+    created_by = Column(String, nullable=False)
+    created_by_role = Column(String, default="employee")
+    created_at = Column(DateTime(timezone=True), default=_now)
+
+    # Merchant profile
+    merchant_name = Column(String, default="")
+    vertical = Column(String, default="Other")
+    risk_level = Column(String, default="low")
+    volume = Column(Float, default=0)
+    transactions = Column(Integer, default=0)
+
+    # Sell pricing
+    markup_pct = Column(Float, default=0)
+    auth_sell = Column(Float, default=0)
+    avs_sell = Column(Float, default=0)
+    batch_sell = Column(Float, default=0)
+    monthly_sell = Column(Float, default=0)
+    transarmor_sell = Column(Float, default=0)
+    pci_sell = Column(Float, default=0)
+    has_amex = Column(Boolean, default=False)
+    amex_volume = Column(Float, default=0)
+    use_gateway = Column(Boolean, default=False)
+
+    # Calculated results
+    beacon_trad_residual = Column(Float, default=0)
+    beacon_trad_margin = Column(Float, default=0)
+    beacon_flex_residual = Column(Float, default=0)
+    beacon_flex_margin = Column(Float, default=0)
+    maverick_residual = Column(Float, default=0)
+    maverick_tnr = Column(Float, default=0)
+    maverick_risk = Column(String, default="low")
+    best_program = Column(String, default="")
+    best_residual = Column(Float, default=0)
+
+    # Meta
+    notes = Column(Text, default="")
+    status = Column(String, default="draft")
+    pdf_url = Column(String, default="")
