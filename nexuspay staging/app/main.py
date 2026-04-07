@@ -49,6 +49,8 @@ ALLOWED_ORIGINS = [
     "https://www.nexuspayai.com",
     # 4. Visitor tracking dashboard
     "https://nexuspaydashboard.netlify.app",
+    # 5. Pricing Tool
+"https://paycalculator.nexuspayai.com",
     # Dev
     "http://localhost:3000",
     "http://localhost:5173",
