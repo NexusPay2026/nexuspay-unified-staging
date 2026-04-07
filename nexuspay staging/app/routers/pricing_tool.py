@@ -8,7 +8,7 @@ from datetime import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional, List
-from app.auth import get_current_user
+from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/api/pricing-tool", tags=["pricing-tool"])
 
