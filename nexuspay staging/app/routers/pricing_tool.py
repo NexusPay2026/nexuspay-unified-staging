@@ -579,3 +579,10 @@ async def generate_public_proposal(req: PublicProposalRequest):
 
     result = await _run_proposal_consensus(prompt)
     return result
+
+
+@router.post("/public-extract")
+async def public_extract_statement(req: ExtractRequest):
+    media_type = req.resolved_media_type()
+    result = await _run_all_extractions(req.file_base64, media_type)
+    return {"business_name":result.get("business_name"),"monthly_volume":result.get("monthly_volume"),"transaction_count":result.get("transaction_count"),"credit_card_pct":result.get("credit_card_pct"),"avg_ticket":result.get("avg_ticket"),"effective_rate":result.get("effective_rate"),"current_processor":result.get("current_processor"),"total_fees":result.get("total_fees"),"industry":result.get("industry"),"_providerCount":result.get("_providerCount",0),"_providers":result.get("_providers",[]),"_confidence":result.get("_confidence","unknown")}
