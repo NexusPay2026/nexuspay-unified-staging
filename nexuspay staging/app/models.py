@@ -172,14 +172,26 @@ class Quote(Base):
     amex_volume = Column(Float, default=0)
     use_gateway = Column(Boolean, default=False)
 
-    # Calculated results
+    # Calculated results — Beacon
     beacon_trad_residual = Column(Float, default=0)
     beacon_trad_margin = Column(Float, default=0)
     beacon_flex_residual = Column(Float, default=0)
     beacon_flex_margin = Column(Float, default=0)
+
+    # Calculated results — North  (added Apr 2026, backward-compatible default=0)
+    north_residual = Column(Float, default=0)
+    north_margin = Column(Float, default=0)
+
+    # Calculated results — Kurv / EMS  (added Apr 2026, backward-compatible default=0)
+    kurv_residual = Column(Float, default=0)
+    kurv_margin = Column(Float, default=0)
+
+    # Calculated results — Maverick
     maverick_residual = Column(Float, default=0)
     maverick_tnr = Column(Float, default=0)
     maverick_risk = Column(String, default="low")
+
+    # Best program (across all active processors)
     best_program = Column(String, default="")
     best_residual = Column(Float, default=0)
 

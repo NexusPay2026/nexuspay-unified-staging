@@ -263,6 +263,10 @@ class QuoteResponse(BaseModel):
     beacon_trad_margin: float
     beacon_flex_residual: float
     beacon_flex_margin: float
+    north_residual: float = 0
+    north_margin: float = 0
+    kurv_residual: float = 0
+    kurv_margin: float = 0
     maverick_residual: float
     maverick_tnr: float
     maverick_risk: str

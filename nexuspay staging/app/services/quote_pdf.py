@@ -1,4 +1,4 @@
-﻿"""
+"""
 Quote PDF generation and R2 upload.
 Uses reportlab for PDF, existing r2_storage service for upload.
 """
@@ -91,12 +91,31 @@ def generate_quote_pdf(quote) -> bytes:
     elements.append(Spacer(1, 12))
 
     elements.append(Paragraph("Residual Comparison", heading_style))
+
+    # Build comparison rows — always show Beacon + Maverick, conditionally show North + Kurv
     comp_data = [
         ["Program", "Gross Margin", "Split", "Your Residual"],
         ["Beacon Traditional", f"${quote.beacon_trad_margin:,.2f}", "75%", f"${quote.beacon_trad_residual:,.2f}"],
         ["Beacon Flex Sell", f"${quote.beacon_flex_margin:,.2f}", "50%", f"${quote.beacon_flex_residual:,.2f}"],
-        [f"Maverick ({quote.maverick_risk or quote.risk_level})", f"${quote.maverick_tnr:,.2f}", "90/80/60%", f"${quote.maverick_residual:,.2f}"],
     ]
+
+    # North — only show if residual exists (backward-compatible with old quotes)
+    north_res = getattr(quote, "north_residual", 0) or 0
+    north_mg = getattr(quote, "north_margin", 0) or 0
+    if north_res != 0 or north_mg != 0:
+        comp_data.append(["North", f"${north_mg:,.2f}", "70%", f"${north_res:,.2f}"])
+
+    # Kurv / EMS — only show if residual exists
+    kurv_res = getattr(quote, "kurv_residual", 0) or 0
+    kurv_mg = getattr(quote, "kurv_margin", 0) or 0
+    if kurv_res != 0 or kurv_mg != 0:
+        kv_risk = getattr(quote, "risk_level", "low") or "low"
+        kv_split_label = "50%" if kv_risk == "high" else "80%"
+        comp_data.append([f"Kurv / EMS ({kv_risk})", f"${kurv_mg:,.2f}", kv_split_label, f"${kurv_res:,.2f}"])
+
+    # Maverick — always shown
+    comp_data.append([f"Maverick ({quote.maverick_risk or quote.risk_level})", f"${quote.maverick_tnr:,.2f}", "90/80/60%", f"${quote.maverick_residual:,.2f}"])
+
     t3 = Table(comp_data, colWidths=[1.8 * inch, 1.6 * inch, 1.2 * inch, 1.6 * inch])
     t3.setStyle(TableStyle([
         ("FONTSIZE", (0, 0), (-1, -1), 10),

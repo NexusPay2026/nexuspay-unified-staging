@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pricing AI Analysis Service — calls all 4 AI providers for deal intelligence.
 Text-only prompts (no file upload needed). Returns consensus recommendation.
 """
@@ -131,7 +131,7 @@ PRICING AS QUOTED:
 
 NEXUSPAY RESIDUAL RESULTS:
 - Beacon Traditional (75% split): ${bt_residual:.2f}/mo
-- Beacon Flex / Dual Pricing (50% split): ${bf_residual:.2f}/mo
+- Beacon Flex / Dual Pricing (50% split): ${bf_residual:.2f}/mo{nt_line}{kv_line}
 - Maverick {risk_label} ({mv_split}% split): ${mv_residual:.2f}/mo
 
 INDUSTRY CONTEXT:
@@ -140,7 +140,7 @@ INDUSTRY CONTEXT:
 
 Return ONLY a valid JSON object with no markdown fences:
 {{
-  "recommended_program": "<Beacon Traditional|Beacon Flex|Maverick>",
+  "recommended_program": "<Beacon Traditional|Beacon Flex|North|Kurv / EMS|Maverick>",
   "reasoning": "<2-3 sentences explaining why this program is best for this specific deal>",
   "deal_strength": "<strong|competitive|marginal|weak>",
   "competitive_position": "<how this pricing compares to what the merchant likely pays now and industry norms>",
@@ -217,6 +217,7 @@ async def analyze_deal(
     merchant_name: str, vertical: str, risk_level: str,
     volume: float, transactions: int, markup: float, auth: float, monthly: float,
     bt_residual: float, bf_residual: float, mv_residual: float,
+    nt_residual: float = 0, kv_residual: float = 0,
     multi_loc: bool = False, locations: int = 1,
 ) -> Dict[str, Any]:
     """Run all 4 AI providers on a pricing deal and return consensus analysis."""
@@ -227,6 +228,16 @@ async def analyze_deal(
     risk_label = risk_level.capitalize() + "-Risk"
     eff_rate = 1.8 + markup  # approximate: avg IC ~1.8% + markup
 
+    # Build conditional processor lines — only include if residual is non-zero
+    nt_line = ""
+    if nt_residual and nt_residual != 0:
+        nt_line = f"\n- North (70% split): ${nt_residual:.2f}/mo"
+
+    kv_line = ""
+    if kv_residual and kv_residual != 0:
+        kv_split_pct = "50" if risk_level == "high" else "80"
+        kv_line = f"\n- Kurv / EMS ({kv_split_pct}% split): ${kv_residual:.2f}/mo"
+
     prompt = PRICING_PROMPT.format(
         merchant_name=merchant_name or "Unnamed",
         vertical=vertical, risk_level=risk_level,
@@ -234,6 +245,7 @@ async def analyze_deal(
         multi_loc="Yes" if multi_loc else "No", locations=locations,
         markup=markup, auth=auth, monthly=monthly,
         bt_residual=bt_residual, bf_residual=bf_residual, mv_residual=mv_residual,
+        nt_line=nt_line, kv_line=kv_line,
         mv_split=mv_split, risk_label=risk_label,
         bench_rate=bench, eff_rate=f"{eff_rate:.2f}",
     )

@@ -1,4 +1,4 @@
-﻿"""
+"""
 Pricing Quote endpoints.
 Admin and Employee roles only.
 """
@@ -50,13 +50,22 @@ async def create_quote(
         has_amex=payload.has_amex,
         amex_volume=payload.amex_volume,
         use_gateway=payload.use_gateway,
+        # Beacon
         beacon_trad_residual=payload.results.get("beacon_trad_residual", 0),
         beacon_trad_margin=payload.results.get("beacon_trad_margin", 0),
         beacon_flex_residual=payload.results.get("beacon_flex_residual", 0),
         beacon_flex_margin=payload.results.get("beacon_flex_margin", 0),
+        # North (optional — 0 if old frontend)
+        north_residual=payload.results.get("north_residual", 0),
+        north_margin=payload.results.get("north_margin", 0),
+        # Kurv / EMS (optional — 0 if old frontend)
+        kurv_residual=payload.results.get("kurv_residual", 0),
+        kurv_margin=payload.results.get("kurv_margin", 0),
+        # Maverick
         maverick_residual=payload.results.get("maverick_residual", 0),
         maverick_tnr=payload.results.get("maverick_tnr", 0),
         maverick_risk=payload.risk_level,
+        # Best across all processors
         best_program=payload.results.get("best_program", ""),
         best_residual=payload.results.get("best_residual", 0),
         notes=payload.notes or "",
@@ -194,6 +203,10 @@ def _to_response(q: Quote) -> QuoteResponse:
         beacon_trad_margin=q.beacon_trad_margin,
         beacon_flex_residual=q.beacon_flex_residual,
         beacon_flex_margin=q.beacon_flex_margin,
+        north_residual=q.north_residual or 0,
+        north_margin=q.north_margin or 0,
+        kurv_residual=q.kurv_residual or 0,
+        kurv_margin=q.kurv_margin or 0,
         maverick_residual=q.maverick_residual,
         maverick_tnr=q.maverick_tnr,
         maverick_risk=q.maverick_risk,
@@ -235,6 +248,20 @@ async def analyze_quote(
     # Beacon Flex
     bf_res = (vol*(mu/100)) * 0.50
 
+    # North  (buy: sp=0.0002, au=0.025, ba=0.05, mo=5 | split: 70%)
+    nt_rev = vol*(mu/100) + tx*au + tx*s.avs_sell + 30*s.batch_sell + s.monthly_sell
+    nt_cost = vol*0.0002 + tx*0.025 + 30*0.05 + 5
+    nt_mg = nt_rev - nt_cost
+    nt_res = nt_mg * 0.70
+
+    # Kurv / EMS  (buy: sp=0.0002, au=0.04/0.10high, ba=0.05, mo=5 | split: 80% low/mod, 50% high)
+    kv_rev = vol*(mu/100) + tx*au + tx*s.avs_sell + 30*s.batch_sell + s.monthly_sell + s.pci_sell
+    kv_au = 0.10 if risk == "high" else 0.04
+    kv_cost = vol*0.0002 + tx*kv_au + 30*0.05 + 5
+    kv_mg = kv_rev - kv_cost
+    kv_split = 0.50 if risk == "high" else 0.80
+    kv_res = kv_mg * kv_split
+
     # Maverick
     mv_rates = {"low":(0.0275,0.0002,0.01,0.01,10,5,0.90),
                 "moderate":(0.04,0.0002,0.03,0.025,10,5,0.80),
@@ -265,6 +292,8 @@ async def analyze_quote(
             monthly=s.monthly_sell or 0,
             bt_residual=bt_res,
             bf_residual=bf_res,
+            nt_residual=nt_res,
+            kv_residual=kv_res,
             mv_residual=mv_res,
             multi_loc=False,
             locations=1,
@@ -278,6 +307,8 @@ async def analyze_quote(
         "residuals": {
             "beacon_trad": round(bt_res, 2),
             "beacon_flex": round(bf_res, 2),
+            "north": round(nt_res, 2),
+            "kurv": round(kv_res, 2),
             "maverick": round(mv_res, 2),
         },
         "provider_count": analysis.get("_providerCount", 0),
@@ -299,4 +330,3 @@ async def validate_quote_pricing(
     role = user.get("role", "employee")
     result = validate_pricing(role, risk, markup, auth, program, state, pricing_model)
     return result
-
