@@ -440,3 +440,10 @@ New Rate: {req.new_rate:.2f}% | NP Residual: ${req.np_residual_mo:,.2f}/mo | Mar
 End with: Ready to get started? Call (720) 689-7272 or visit nexuspayservices.com"""
     txt = await _call_proposal(prompt)
     return {"proposal_text": txt, "generated_at": datetime.now(timezone.utc).isoformat()}
+
+
+@router.post("/public-extract")
+async def public_extract_statement(req: ExtractRequest):
+    media_type = req.resolved_media_type()
+    result = await _run_all_extractions(req.file_base64, media_type)
+    return {"business_name":result.get("business_name"),"monthly_volume":result.get("monthly_volume"),"transaction_count":result.get("transaction_count"),"credit_card_pct":result.get("credit_card_pct"),"avg_ticket":result.get("avg_ticket"),"effective_rate":result.get("effective_rate"),"current_processor":result.get("current_processor"),"total_fees":result.get("total_fees"),"industry":result.get("industry"),"_providerCount":result.get("_providerCount",0),"_providers":result.get("_providers",[]),"_confidence":result.get("_confidence","unknown")}
