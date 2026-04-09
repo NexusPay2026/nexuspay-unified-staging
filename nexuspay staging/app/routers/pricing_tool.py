@@ -1,5 +1,5 @@
-"""
-Pricing Tool API — Multi-AI Statement Extraction + Proposal Generation
+﻿"""
+Pricing Tool API â€” Multi-AI Statement Extraction + Proposal Generation
 All 4 providers (Claude, GPT-4o, Gemini, Grok) run in PARALLEL.
 Results merged via consensus scoring. Files stored to R2, metadata to Postgres.
 Employee/Admin only.
@@ -20,9 +20,9 @@ from app.services.r2_storage import r2_available, generate_r2_key, upload_to_r2
 router = APIRouter(prefix="/api/pricing-tool", tags=["pricing-tool"])
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  REQUEST / RESPONSE MODELS
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class ExtractRequest(BaseModel):
     file_base64: str
@@ -70,18 +70,18 @@ class ProposalRequest(BaseModel):
     model_config = {"protected_namespaces": ()}
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  EXTRACT PROMPT
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 EXTRACT_PROMPT = """You are a merchant processing statement analyst for NexusPay. Extract fields from this statement. Return ONLY valid JSON, no markdown, no backticks:
 {"business_name":null,"contact_email":null,"contact_phone":null,"monthly_volume":null,"transaction_count":null,"credit_card_pct":null,"avg_ticket":null,"effective_rate":null,"current_processor":null,"total_fees":null,"interchange_cost":null,"industry":null,"mcc_code":null,"findings":[]}
 If a field cannot be determined, use null. For effective_rate, calculate as (total_fees/monthly_volume*100) if both available. Flag hidden fees, overcharges, PCI issues in findings array."""
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  INDIVIDUAL AI PROVIDER CALLS (with vision/document support)
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 async def _extract_claude(file_base64: str, media_type: str) -> Dict:
     key = settings.ANTHROPIC_API_KEY
@@ -155,9 +155,9 @@ async def _extract_grok(file_base64: str, media_type: str) -> Dict:
         return {"provider": "Grok", "raw": r.json()["choices"][0]["message"]["content"]}
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  JSON PARSER
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def _parse_json(raw: str) -> Dict:
     text = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
@@ -168,9 +168,9 @@ def _parse_json(raw: str) -> Dict:
     return json.loads(text[start:end + 1])
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  4-AI PARALLEL EXTRACTION + CONSENSUS
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 async def _run_all_extractions(file_base64: str, media_type: str) -> Dict[str, Any]:
     """Run all 4 providers in parallel, merge results with consensus scoring."""
@@ -186,7 +186,7 @@ async def _run_all_extractions(file_base64: str, media_type: str) -> Dict[str, A
         providers.append(("Grok", _extract_grok))
 
     if not providers:
-        raise HTTPException(500, "No AI API keys configured — set ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, GROK_API_KEY in Render env vars")
+        raise HTTPException(500, "No AI API keys configured â€” set ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, GROK_API_KEY in Render env vars")
 
     results = []
     errors = []
@@ -207,7 +207,7 @@ async def _run_all_extractions(file_base64: str, media_type: str) -> Dict[str, A
         err_msg = "; ".join(f"{e['provider']}: {e['error']}" for e in errors)
         raise HTTPException(500, f"All AI providers failed: {err_msg}")
 
-    # Single provider — return directly
+    # Single provider â€” return directly
     if len(results) == 1:
         r = results[0]
         r["_providerCount"] = 1
@@ -246,7 +246,7 @@ def _build_extraction_consensus(results: List[Dict]) -> Dict[str, Any]:
             field_sources[field] = []
             continue
 
-        # Numeric fields — take median of non-null values
+        # Numeric fields â€” take median of non-null values
         if field in ("monthly_volume", "transaction_count", "credit_card_pct",
                       "avg_ticket", "effective_rate", "total_fees", "interchange_cost"):
             nums = []
@@ -267,7 +267,7 @@ def _build_extraction_consensus(results: List[Dict]) -> Dict[str, Any]:
                 merged[field] = None
                 field_sources[field] = []
         else:
-            # String fields — majority vote, fallback to longest
+            # String fields â€” majority vote, fallback to longest
             str_vals = [str(v).strip() for v, _ in values if v]
             sources = [p for _, p in values if _]
             if str_vals:
@@ -311,9 +311,9 @@ def _build_extraction_consensus(results: List[Dict]) -> Dict[str, Any]:
     return merged
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PROPOSAL GENERATION (text-only, any provider)
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 async def _call_proposal(prompt: str) -> str:
     providers = []
@@ -359,9 +359,9 @@ async def _call_proposal(prompt: str) -> str:
     raise HTTPException(500, f"All providers failed: {last}")
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  ROUTES
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router.post("/extract")
 async def extract_statement(req: ExtractRequest, user=Depends(get_current_user)):
@@ -371,7 +371,7 @@ async def extract_statement(req: ExtractRequest, user=Depends(get_current_user))
     media_type = req.resolved_media_type()
     file_name = req.file_name or "statement"
 
-    # ── Store raw file to R2 if available ──
+    # â”€â”€ Store raw file to R2 if available â”€â”€
     r2_key = None
     if r2_available():
         try:
@@ -382,7 +382,7 @@ async def extract_statement(req: ExtractRequest, user=Depends(get_current_user))
             print(f"R2 upload skipped: {e}")
             r2_key = None
 
-    # ── Run all 4 AI providers in parallel ──
+    # â”€â”€ Run all 4 AI providers in parallel â”€â”€
     result = await _run_all_extractions(req.file_base64, media_type)
 
     # Attach R2 key and file metadata
@@ -390,7 +390,7 @@ async def extract_statement(req: ExtractRequest, user=Depends(get_current_user))
     result["_file_name"] = file_name
     result["_media_type"] = media_type
 
-    # ── Map to frontend expected field names ──
+    # â”€â”€ Map to frontend expected field names â”€â”€
     return {
         "merchant_name": result.get("business_name"),
         "contact_email": result.get("contact_email"),
@@ -447,3 +447,70 @@ async def public_extract_statement(req: ExtractRequest):
     media_type = req.resolved_media_type()
     result = await _run_all_extractions(req.file_base64, media_type)
     return {"business_name":result.get("business_name"),"monthly_volume":result.get("monthly_volume"),"transaction_count":result.get("transaction_count"),"credit_card_pct":result.get("credit_card_pct"),"avg_ticket":result.get("avg_ticket"),"effective_rate":result.get("effective_rate"),"current_processor":result.get("current_processor"),"total_fees":result.get("total_fees"),"industry":result.get("industry"),"_providerCount":result.get("_providerCount",0),"_providers":result.get("_providers",[]),"_confidence":result.get("_confidence","unknown")}
+
+
+class PublicProposalRequest(BaseModel):
+    business_name: str = "Business Owner"
+    industry: str = "Retail"
+    monthly_volume: float = 0
+    transactions: int = 0
+    credit_card_pct: float = 85
+    current_rate: float = 0
+    current_monthly_cost: float = 0
+    recommended_model: str = "Cash Discount"
+    nexuspay_rate: float = 0
+    nexuspay_monthly_cost: float = 0
+    annual_savings: float = 0
+    market_avg_rate: float = 0
+    model_config = {"protected_namespaces": ()}
+
+
+PUBLIC_PROPOSAL_PROMPT = """You are writing a professional merchant services proposal for NexusPay, a veteran-owned payment processing company in Colorado. Write a clear, warm, professional proposal. Plain language. No markdown, no bullets, no headers — just clean paragraphs. MERCHANT: {business_name} | {industry} | ${volume:,.0f}/mo | {transactions:,} txns | Current: {current_rate:.2f}% (${current_cost:,.2f}/mo). NEXUSPAY: {model} | {np_rate:.2f}% | ${np_cost:,.2f}/mo | Savings: ${savings:,.0f}/yr | Market: {market:.2f}%. Write 3 paragraphs: (1) current situation vs industry, (2) recommended model explained simply, (3) savings + next step. End with: Ready to start saving? Call (720) 689-7272, visit nexuspayservices.com, or book a free consultation. Under 250 words. Veteran-owned brand voice."""
+
+
+async def _run_proposal_consensus(prompt: str) -> Dict[str, Any]:
+    providers = []
+    if settings.ANTHROPIC_API_KEY:
+        providers.append(("Claude", "claude"))
+    if settings.OPENAI_API_KEY:
+        providers.append(("GPT-4o", "openai"))
+    if settings.GOOGLE_API_KEY:
+        providers.append(("Gemini", "gemini"))
+    if settings.GROK_API_KEY:
+        providers.append(("Grok", "grok"))
+    if not providers:
+        raise HTTPException(500, "No AI keys configured")
+    results = []
+    errors = []
+    async def _run(name, key):
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as c:
+                if key == "claude":
+                    r = await c.post("https://api.anthropic.com/v1/messages", headers={"x-api-key": settings.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json"}, json={"model": "claude-sonnet-4-20250514", "max_tokens": 1000, "messages": [{"role": "user", "content": prompt}]})
+                    d = r.json()
+                    results.append({"provider": name, "text": "".join(b.get("text", "") for b in d.get("content", []) if b.get("type") == "text")})
+                elif key == "openai":
+                    r = await c.post("https://api.openai.com/v1/chat/completions", headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"}, json={"model": "gpt-4o", "max_tokens": 1000, "temperature": 0.3, "messages": [{"role": "user", "content": prompt}]})
+                    results.append({"provider": name, "text": r.json()["choices"][0]["message"]["content"]})
+                elif key == "gemini":
+                    r = await c.post(f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.GOOGLE_API_KEY}", json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1000}})
+                    results.append({"provider": name, "text": r.json()["candidates"][0]["content"]["parts"][0]["text"]})
+                elif key == "grok":
+                    r = await c.post("https://api.x.ai/v1/chat/completions", headers={"Authorization": f"Bearer {settings.GROK_API_KEY}", "Content-Type": "application/json"}, json={"model": "grok-3", "max_tokens": 1000, "temperature": 0.3, "messages": [{"role": "user", "content": prompt}]})
+                    results.append({"provider": name, "text": r.json()["choices"][0]["message"]["content"]})
+        except Exception as e:
+            errors.append({"provider": name, "error": str(e)})
+    await asyncio.gather(*[_run(n, k) for n, k in providers])
+    if not results:
+        raise HTTPException(500, f"All providers failed: {'; '.join(f'{e['provider']}: {e['error']}' for e in errors)}")
+    best = max(results, key=lambda r: len(r.get("text", "")))
+    return {"proposal_text": best["text"], "selected_provider": best["provider"], "_providerCount": len(results), "_providers": [r["provider"] for r in results], "_errors": errors, "generated_at": datetime.now(timezone.utc).isoformat()}
+
+
+@router.post("/public-proposal")
+async def generate_public_proposal(req: PublicProposalRequest):
+    if req.monthly_volume <= 0:
+        raise HTTPException(400, "Monthly volume is required")
+    prompt = PUBLIC_PROPOSAL_PROMPT.format(business_name=req.business_name or "Business Owner", industry=req.industry or "Retail", volume=req.monthly_volume, transactions=req.transactions, current_rate=req.current_rate, current_cost=req.current_monthly_cost, model=req.recommended_model, np_rate=req.nexuspay_rate, np_cost=req.nexuspay_monthly_cost, savings=req.annual_savings, market=req.market_avg_rate)
+    result = await _run_proposal_consensus(prompt)
+    return result
