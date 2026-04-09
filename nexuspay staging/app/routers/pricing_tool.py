@@ -1,5 +1,5 @@
-"""
-Pricing Tool API — Multi-AI Statement Extraction + Proposal Generation
+﻿"""
+Pricing Tool API â€” Multi-AI Statement Extraction + Proposal Generation
 All 4 providers (Claude, GPT-4o, Gemini, Grok) run in PARALLEL.
 Results merged via consensus scoring. Files stored to R2, metadata to Postgres.
 Employee/Admin only.
@@ -15,14 +15,17 @@ from pydantic import BaseModel
 
 from app.config import settings
 from app.services.auth_service import get_current_user
+from app.database import get_db
+from sqlalchemy.ext.asyncio import AsyncSession
+from app.models import Visitor, Merchant
 from app.services.r2_storage import r2_available, generate_r2_key, upload_to_r2
 
 router = APIRouter(prefix="/api/pricing-tool", tags=["pricing-tool"])
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  REQUEST / RESPONSE MODELS
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class ExtractRequest(BaseModel):
     file_base64: str
@@ -70,18 +73,18 @@ class ProposalRequest(BaseModel):
     model_config = {"protected_namespaces": ()}
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  EXTRACT PROMPT
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 EXTRACT_PROMPT = """You are a merchant processing statement analyst for NexusPay. Extract fields from this statement. Return ONLY valid JSON, no markdown, no backticks:
 {"business_name":null,"contact_email":null,"contact_phone":null,"monthly_volume":null,"transaction_count":null,"credit_card_pct":null,"avg_ticket":null,"effective_rate":null,"current_processor":null,"total_fees":null,"interchange_cost":null,"industry":null,"mcc_code":null,"findings":[]}
 If a field cannot be determined, use null. For effective_rate, calculate as (total_fees/monthly_volume*100) if both available. Flag hidden fees, overcharges, PCI issues in findings array."""
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  INDIVIDUAL AI PROVIDER CALLS (with vision/document support)
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 async def _extract_claude(file_base64: str, media_type: str) -> Dict:
     key = settings.ANTHROPIC_API_KEY
@@ -155,9 +158,9 @@ async def _extract_grok(file_base64: str, media_type: str) -> Dict:
         return {"provider": "Grok", "raw": r.json()["choices"][0]["message"]["content"]}
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  JSON PARSER
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 def _parse_json(raw: str) -> Dict:
     text = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
@@ -168,9 +171,9 @@ def _parse_json(raw: str) -> Dict:
     return json.loads(text[start:end + 1])
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  4-AI PARALLEL EXTRACTION + CONSENSUS
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 async def _run_all_extractions(file_base64: str, media_type: str) -> Dict[str, Any]:
     """Run all 4 providers in parallel, merge results with consensus scoring."""
@@ -186,7 +189,7 @@ async def _run_all_extractions(file_base64: str, media_type: str) -> Dict[str, A
         providers.append(("Grok", _extract_grok))
 
     if not providers:
-        raise HTTPException(500, "No AI API keys configured — set ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, GROK_API_KEY in Render env vars")
+        raise HTTPException(500, "No AI API keys configured â€” set ANTHROPIC_API_KEY, OPENAI_API_KEY, GOOGLE_API_KEY, GROK_API_KEY in Render env vars")
 
     results = []
     errors = []
@@ -207,7 +210,7 @@ async def _run_all_extractions(file_base64: str, media_type: str) -> Dict[str, A
         err_msg = "; ".join(f"{e['provider']}: {e['error']}" for e in errors)
         raise HTTPException(500, f"All AI providers failed: {err_msg}")
 
-    # Single provider — return directly
+    # Single provider â€” return directly
     if len(results) == 1:
         r = results[0]
         r["_providerCount"] = 1
@@ -246,7 +249,7 @@ def _build_extraction_consensus(results: List[Dict]) -> Dict[str, Any]:
             field_sources[field] = []
             continue
 
-        # Numeric fields — take median of non-null values
+        # Numeric fields â€” take median of non-null values
         if field in ("monthly_volume", "transaction_count", "credit_card_pct",
                       "avg_ticket", "effective_rate", "total_fees", "interchange_cost"):
             nums = []
@@ -267,7 +270,7 @@ def _build_extraction_consensus(results: List[Dict]) -> Dict[str, Any]:
                 merged[field] = None
                 field_sources[field] = []
         else:
-            # String fields — majority vote, fallback to longest
+            # String fields â€” majority vote, fallback to longest
             str_vals = [str(v).strip() for v, _ in values if v]
             sources = [p for _, p in values if _]
             if str_vals:
@@ -311,9 +314,9 @@ def _build_extraction_consensus(results: List[Dict]) -> Dict[str, Any]:
     return merged
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PROPOSAL GENERATION (text-only, any provider)
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 async def _call_proposal(prompt: str) -> str:
     providers = []
@@ -359,9 +362,9 @@ async def _call_proposal(prompt: str) -> str:
     raise HTTPException(500, f"All providers failed: {last}")
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  ROUTES
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 @router.post("/extract")
 async def extract_statement(req: ExtractRequest, user=Depends(get_current_user)):
@@ -371,7 +374,7 @@ async def extract_statement(req: ExtractRequest, user=Depends(get_current_user))
     media_type = req.resolved_media_type()
     file_name = req.file_name or "statement"
 
-    # ── Store raw file to R2 if available ──
+    # â”€â”€ Store raw file to R2 if available â”€â”€
     r2_key = None
     if r2_available():
         try:
@@ -382,7 +385,7 @@ async def extract_statement(req: ExtractRequest, user=Depends(get_current_user))
             print(f"R2 upload skipped: {e}")
             r2_key = None
 
-    # ── Run all 4 AI providers in parallel ──
+    # â”€â”€ Run all 4 AI providers in parallel â”€â”€
     result = await _run_all_extractions(req.file_base64, media_type)
 
     # Attach R2 key and file metadata
@@ -390,7 +393,7 @@ async def extract_statement(req: ExtractRequest, user=Depends(get_current_user))
     result["_file_name"] = file_name
     result["_media_type"] = media_type
 
-    # ── Map to frontend expected field names ──
+    # â”€â”€ Map to frontend expected field names â”€â”€
     return {
         "merchant_name": result.get("business_name"),
         "contact_email": result.get("contact_email"),
@@ -442,10 +445,10 @@ End with: Ready to get started? Call (720) 689-7272 or visit nexuspayservices.co
     return {"proposal_text": txt, "generated_at": datetime.now(timezone.utc).isoformat()}
 
 
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 #  PUBLIC: 4-AI PARALLEL CONSENSUS PROPOSAL (customer-facing)
 #  No authentication required. No internal data exposed.
-# ══════════════════════════════════════════════════════════════
+# â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
 class PublicProposalRequest(BaseModel):
     business_name: str = "Business Owner"
@@ -465,7 +468,7 @@ class PublicProposalRequest(BaseModel):
 
 PUBLIC_PROPOSAL_PROMPT = """You are writing a professional merchant services proposal for NexusPay, a veteran-owned payment processing company in Colorado.
 
-Write a clear, warm, professional proposal for this merchant. Use plain language suitable for a business owner. No markdown, no bullet points, no headers — just clean paragraphs.
+Write a clear, warm, professional proposal for this merchant. Use plain language suitable for a business owner. No markdown, no bullet points, no headers â€” just clean paragraphs.
 
 MERCHANT DETAILS:
 - Business: {business_name}
@@ -559,7 +562,7 @@ async def _run_proposal_consensus(prompt: str) -> Dict[str, Any]:
 
 @router.post("/public-proposal")
 async def generate_public_proposal(req: PublicProposalRequest):
-    """Public endpoint — no auth. Runs all 4 AIs in parallel for consensus proposal."""
+    """Public endpoint â€” no auth. Runs all 4 AIs in parallel for consensus proposal."""
     if req.monthly_volume <= 0:
         raise HTTPException(400, "Monthly volume is required")
 
@@ -581,8 +584,95 @@ async def generate_public_proposal(req: PublicProposalRequest):
     return result
 
 
+class PublicExtractRequest(BaseModel):
+    file_base64: str
+    media_type: Optional[str] = None
+    file_type: Optional[str] = None
+    file_name: Optional[str] = "statement"
+    business_name: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+
+    def resolved_media_type(self) -> str:
+        mt = self.media_type or self.file_type or ""
+        if not mt:
+            name = (self.file_name or "").lower()
+            if name.endswith(".pdf"): mt = "application/pdf"
+            elif name.endswith((".jpg", ".jpeg")): mt = "image/jpeg"
+            elif name.endswith(".png"): mt = "image/png"
+            else: mt = "image/jpeg"
+        return mt
+
+
 @router.post("/public-extract")
-async def public_extract_statement(req: ExtractRequest):
+async def public_extract_statement(req: PublicExtractRequest, db: AsyncSession = Depends(get_db)):
+    """Public: 4-AI extraction + auto-create Visitor lead + Merchant record."""
     media_type = req.resolved_media_type()
     result = await _run_all_extractions(req.file_base64, media_type)
-    return {"business_name":result.get("business_name"),"monthly_volume":result.get("monthly_volume"),"transaction_count":result.get("transaction_count"),"credit_card_pct":result.get("credit_card_pct"),"avg_ticket":result.get("avg_ticket"),"effective_rate":result.get("effective_rate"),"current_processor":result.get("current_processor"),"total_fees":result.get("total_fees"),"industry":result.get("industry"),"_providerCount":result.get("_providerCount",0),"_providers":result.get("_providers",[]),"_confidence":result.get("_confidence","unknown")}
+
+    biz = result.get("business_name") or req.business_name or "Unknown Business"
+    vol = result.get("monthly_volume") or 0
+    fees = result.get("total_fees") or 0
+    tx = result.get("transaction_count") or 0
+    eff = result.get("effective_rate") or 0
+    proc = result.get("current_processor") or ""
+    industry = result.get("industry") or ""
+    email = req.email or ""
+    phone = req.phone or ""
+    provs = result.get("_providers", [])
+    conf = result.get("_confidence", "unknown")
+
+    # Create Visitor (lead) record
+    try:
+        visitor = Visitor(
+            full_name=biz,
+            business_name=biz,
+            email=email or "noemail@pricetool.nexuspay",
+            phone=phone,
+            source="pricing_tool_upload",
+            ai_business_type=industry,
+            message=f"[Statement Upload] {len(provs)} AIs ({conf}) | Processor: {proc} | Vol: ${vol:,.0f} | Fees: ${fees:,.2f} | Rate: {eff:.2f}% | Txns: {tx}",
+        )
+        db.add(visitor)
+        await db.flush()
+    except Exception:
+        pass
+
+    # Create Merchant prospect record
+    try:
+        merchant = Merchant(
+            name=biz,
+            processor=proc,
+            monthly_volume=float(vol) if vol else 0,
+            total_fees=float(fees) if fees else 0,
+            transaction_count=int(tx) if tx else 0,
+            effective_rate=float(eff) if eff else 0,
+            credit_card_pct=float(result.get("credit_card_pct") or 85),
+            avg_ticket=float(result.get("avg_ticket") or 0),
+            interchange_cost=float(result.get("interchange_cost") or 0),
+            is_demo=False,
+            added_by="pricing_tool_public",
+            owner_email=email,
+        )
+        db.add(merchant)
+        await db.flush()
+    except Exception:
+        pass
+
+    await db.commit()
+
+    return {
+        "business_name": result.get("business_name"),
+        "monthly_volume": result.get("monthly_volume"),
+        "transaction_count": result.get("transaction_count"),
+        "credit_card_pct": result.get("credit_card_pct"),
+        "avg_ticket": result.get("avg_ticket"),
+        "effective_rate": result.get("effective_rate"),
+        "current_processor": result.get("current_processor"),
+        "total_fees": result.get("total_fees"),
+        "industry": result.get("industry"),
+        "_providerCount": result.get("_providerCount", 0),
+        "_providers": result.get("_providers", []),
+        "_confidence": result.get("_confidence", "unknown"),
+        "_saved": True,
+    }
