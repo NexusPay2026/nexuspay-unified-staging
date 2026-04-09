@@ -440,3 +440,142 @@ New Rate: {req.new_rate:.2f}% | NP Residual: ${req.np_residual_mo:,.2f}/mo | Mar
 End with: Ready to get started? Call (720) 689-7272 or visit nexuspayservices.com"""
     txt = await _call_proposal(prompt)
     return {"proposal_text": txt, "generated_at": datetime.now(timezone.utc).isoformat()}
+
+
+# ══════════════════════════════════════════════════════════════
+#  PUBLIC: 4-AI PARALLEL CONSENSUS PROPOSAL (customer-facing)
+#  No authentication required. No internal data exposed.
+# ══════════════════════════════════════════════════════════════
+
+class PublicProposalRequest(BaseModel):
+    business_name: str = "Business Owner"
+    industry: str = "Retail"
+    monthly_volume: float = 0
+    transactions: int = 0
+    credit_card_pct: float = 85
+    current_rate: float = 0
+    current_monthly_cost: float = 0
+    recommended_model: str = "Cash Discount"
+    nexuspay_rate: float = 0
+    nexuspay_monthly_cost: float = 0
+    annual_savings: float = 0
+    market_avg_rate: float = 0
+    model_config = {"protected_namespaces": ()}
+
+
+PUBLIC_PROPOSAL_PROMPT = """You are writing a professional merchant services proposal for NexusPay, a veteran-owned payment processing company in Colorado.
+
+Write a clear, warm, professional proposal for this merchant. Use plain language suitable for a business owner. No markdown, no bullet points, no headers — just clean paragraphs.
+
+MERCHANT DETAILS:
+- Business: {business_name}
+- Industry: {industry}
+- Monthly Volume: ${volume:,.0f}
+- Monthly Transactions: {transactions:,}
+- Current Rate: {current_rate:.2f}%
+- Current Monthly Cost: ${current_cost:,.2f}
+
+NEXUSPAY RECOMMENDATION:
+- Pricing Model: {model}
+- NexusPay Rate: {np_rate:.2f}%
+- NexusPay Monthly Cost: ${np_cost:,.2f}
+- Projected Annual Savings: ${savings:,.0f}
+- Industry Average Rate: {market:.2f}%
+
+Write exactly 3 paragraphs:
+1. Acknowledge their current situation and what they're paying vs the industry average.
+2. Explain the recommended pricing model in simple terms and why it's the best fit.
+3. Quantify the savings and provide a clear next step.
+
+End with: Ready to start saving? Call us at (720) 689-7272, visit nexuspayservices.com, or book a free consultation at no obligation.
+
+Keep it under 250 words. Warm, confident, veteran-owned brand voice. No hype, no pressure."""
+
+
+async def _run_proposal_consensus(prompt: str) -> Dict[str, Any]:
+    """Run all 4 AI providers in parallel for proposal text, return best + metadata."""
+    providers = []
+    if settings.ANTHROPIC_API_KEY:
+        providers.append(("Claude", "claude"))
+    if settings.OPENAI_API_KEY:
+        providers.append(("GPT-4o", "openai"))
+    if settings.GOOGLE_API_KEY:
+        providers.append(("Gemini", "gemini"))
+    if settings.GROK_API_KEY:
+        providers.append(("Grok", "grok"))
+
+    if not providers:
+        raise HTTPException(500, "No AI keys configured")
+
+    results = []
+    errors = []
+
+    async def _run(name, key):
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as c:
+                if key == "claude":
+                    r = await c.post("https://api.anthropic.com/v1/messages",
+                        headers={"x-api-key": settings.ANTHROPIC_API_KEY, "anthropic-version": "2023-06-01", "Content-Type": "application/json"},
+                        json={"model": "claude-sonnet-4-20250514", "max_tokens": 1000, "messages": [{"role": "user", "content": prompt}]})
+                    d = r.json()
+                    txt = "".join(b.get("text", "") for b in d.get("content", []) if b.get("type") == "text")
+                    results.append({"provider": name, "text": txt})
+                elif key == "openai":
+                    r = await c.post("https://api.openai.com/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {settings.OPENAI_API_KEY}", "Content-Type": "application/json"},
+                        json={"model": "gpt-4o", "max_tokens": 1000, "temperature": 0.3, "messages": [{"role": "user", "content": prompt}]})
+                    results.append({"provider": name, "text": r.json()["choices"][0]["message"]["content"]})
+                elif key == "gemini":
+                    r = await c.post(
+                        f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={settings.GOOGLE_API_KEY}",
+                        json={"contents": [{"parts": [{"text": prompt}]}], "generationConfig": {"temperature": 0.3, "maxOutputTokens": 1000}})
+                    results.append({"provider": name, "text": r.json()["candidates"][0]["content"]["parts"][0]["text"]})
+                elif key == "grok":
+                    r = await c.post("https://api.x.ai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {settings.GROK_API_KEY}", "Content-Type": "application/json"},
+                        json={"model": "grok-3", "max_tokens": 1000, "temperature": 0.3, "messages": [{"role": "user", "content": prompt}]})
+                    results.append({"provider": name, "text": r.json()["choices"][0]["message"]["content"]})
+        except Exception as e:
+            errors.append({"provider": name, "error": str(e)})
+
+    await asyncio.gather(*[_run(n, k) for n, k in providers])
+
+    if not results:
+        err_msg = "; ".join(f"{e['provider']}: {e['error']}" for e in errors)
+        raise HTTPException(500, f"All AI providers failed: {err_msg}")
+
+    # Pick longest proposal (most detailed), report all providers
+    best = max(results, key=lambda r: len(r.get("text", "")))
+
+    return {
+        "proposal_text": best["text"],
+        "selected_provider": best["provider"],
+        "_providerCount": len(results),
+        "_providers": [r["provider"] for r in results],
+        "_errors": errors,
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+    }
+
+
+@router.post("/public-proposal")
+async def generate_public_proposal(req: PublicProposalRequest):
+    """Public endpoint — no auth. Runs all 4 AIs in parallel for consensus proposal."""
+    if req.monthly_volume <= 0:
+        raise HTTPException(400, "Monthly volume is required")
+
+    prompt = PUBLIC_PROPOSAL_PROMPT.format(
+        business_name=req.business_name or "Business Owner",
+        industry=req.industry or "Retail",
+        volume=req.monthly_volume,
+        transactions=req.transactions,
+        current_rate=req.current_rate,
+        current_cost=req.current_monthly_cost,
+        model=req.recommended_model,
+        np_rate=req.nexuspay_rate,
+        np_cost=req.nexuspay_monthly_cost,
+        savings=req.annual_savings,
+        market=req.market_avg_rate,
+    )
+
+    result = await _run_proposal_consensus(prompt)
+    return result
