@@ -604,6 +604,46 @@ class PublicExtractRequest(BaseModel):
         return mt
 
 
+def _compute_forensic_grade(effective_rate: float) -> Dict[str, Any]:
+    """
+    Forensic Audit v1 Grading.
+    Grades the merchant's current processing cost vs US market benchmark.
+    Market band: 2.87% - 4.35% (US average per NexusPay paycalculator).
+
+    Returns letter grade, position descriptor, and color tier for UI rendering.
+    """
+    if not effective_rate or effective_rate <= 0:
+        return {
+            "grade": None,
+            "position": "insufficient_data",
+            "label": "Insufficient data \u2014 manual review required",
+            "tier": "unknown",
+        }
+
+    er = float(effective_rate)
+    if er <= 2.00:
+        return {"grade": "A+", "position": "well_below_market", "label": "Well below market floor", "tier": "excellent"}
+    if er <= 2.50:
+        return {"grade": "A",  "position": "below_market",      "label": "Below market floor",      "tier": "excellent"}
+    if er <= 2.87:
+        return {"grade": "A-", "position": "at_market_floor",   "label": "At market floor",         "tier": "excellent"}
+    if er <= 3.10:
+        return {"grade": "B+", "position": "low_band",          "label": "Lower end of market",     "tier": "good"}
+    if er <= 3.40:
+        return {"grade": "B",  "position": "mid_band_lower",    "label": "Lower half of market",    "tier": "good"}
+    if er <= 3.61:
+        return {"grade": "B-", "position": "median",            "label": "Around market median",    "tier": "fair"}
+    if er <= 3.85:
+        return {"grade": "C+", "position": "mid_band_upper",    "label": "Upper half of market",    "tier": "fair"}
+    if er <= 4.10:
+        return {"grade": "C",  "position": "high_band",         "label": "High end of market",      "tier": "poor"}
+    if er <= 4.35:
+        return {"grade": "C-", "position": "at_market_ceiling", "label": "At market ceiling",       "tier": "poor"}
+    if er <= 5.00:
+        return {"grade": "D",  "position": "above_market",      "label": "Above market ceiling",    "tier": "critical"}
+    return     {"grade": "F",  "position": "severely_above",    "label": "Severely above market",   "tier": "critical"}
+
+
 @router.post("/public-extract")
 async def public_extract_statement(req: PublicExtractRequest, db: AsyncSession = Depends(get_db)):
     """Public: 4-AI extraction + auto-create Visitor lead + Merchant record."""
@@ -621,6 +661,7 @@ async def public_extract_statement(req: PublicExtractRequest, db: AsyncSession =
     phone = req.phone or ""
     provs = result.get("_providers", [])
     conf = result.get("_confidence", "unknown")
+    findings_list = result.get("findings", []) or []
 
     # Create Visitor (lead) record
     try:
@@ -639,6 +680,7 @@ async def public_extract_statement(req: PublicExtractRequest, db: AsyncSession =
         pass
 
     # Create Merchant prospect record
+    merchant_id_for_signup = None
     try:
         merchant = Merchant(
             name=biz,
@@ -656,10 +698,24 @@ async def public_extract_statement(req: PublicExtractRequest, db: AsyncSession =
         )
         db.add(merchant)
         await db.flush()
+        merchant_id_for_signup = merchant.id
     except Exception:
         pass
 
     await db.commit()
+
+    # ── Forensic Audit v1 grading ───────────────────────────────────────
+    eff_float = float(eff) if eff else 0.0
+    vol_float = float(vol) if vol else 0.0
+    forensic = _compute_forensic_grade(eff_float)
+
+    # Estimated annual overcharge vs market floor (2.87%)
+    # Only meaningful if effective rate is above market floor and volume is known
+    MARKET_FLOOR = 2.87
+    annual_overcharge = 0.0
+    if eff_float > MARKET_FLOOR and vol_float > 0:
+        monthly_overcharge = ((eff_float - MARKET_FLOOR) / 100.0) * vol_float
+        annual_overcharge = round(monthly_overcharge * 12, 2)
 
     return {
         "business_name": result.get("business_name"),
@@ -671,8 +727,19 @@ async def public_extract_statement(req: PublicExtractRequest, db: AsyncSession =
         "current_processor": result.get("current_processor"),
         "total_fees": result.get("total_fees"),
         "industry": result.get("industry"),
+        "findings": findings_list,
         "_providerCount": result.get("_providerCount", 0),
         "_providers": result.get("_providers", []),
         "_confidence": result.get("_confidence", "unknown"),
         "_saved": True,
+        # Forensic Audit v1 fields
+        "_grade": forensic["grade"],
+        "_grade_position": forensic["position"],
+        "_grade_label": forensic["label"],
+        "_grade_tier": forensic["tier"],
+        "_market_floor": MARKET_FLOOR,
+        "_market_ceiling": 4.35,
+        "_estimated_annual_overcharge": annual_overcharge,
+        "_findings_count": len(findings_list),
+        "_merchant_id": merchant_id_for_signup,
     }
