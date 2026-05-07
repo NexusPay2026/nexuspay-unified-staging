@@ -3,20 +3,24 @@ Calcerta Group chatbot router for NexusPay Intelligence Platform.
 
 Location in repo: nexuspay staging/app/routers/chatbot.py
 
-This is the v2 router with an improved system prompt:
-- Answer-first behavior instead of route-first (Claude actually answers questions
-  instead of dumping users into lead capture)
-- Lead capture only fires on explicit buying intent
-- Human handoff only fires on explicit user request
+Wire-up in app/main.py:
 
-UPDATE INSTRUCTIONS:
-Replace your existing app/routers/chatbot.py with this entire file, then:
+  1. Add 'chatbot' to the routers import line:
+     from app.routers import auth, merchants, users, visitors, audit, health, storage, quotes, pricing_tool, chatbot
 
-    git add "nexuspay staging/app/routers/chatbot.py"
-    git commit -m "Update chatbot system prompt - answer-first behavior"
-    git push origin main
+  2. Add the chatbot router include alongside the others:
+     app.include_router(chatbot.router, prefix="/api", tags=["Chatbot"])
 
-Render will auto-redeploy in ~90 seconds. No env var changes needed.
+Required environment variable on Render:
+    ANTHROPIC_API_KEY = sk-ant-...
+
+Optional environment variables:
+    ANTHROPIC_CHATBOT_MODEL = claude-haiku-4-5  (default; cheapest, fastest)
+    CHATBOT_DEBUG = false                       (set true to expose verbose error details)
+
+Endpoints exposed (after prefix="/api" applied at registration):
+    GET  /api/chatbot/health   - readiness probe
+    POST /api/chatbot/message  - main chat endpoint called by the website widget
 """
 import os
 import time
