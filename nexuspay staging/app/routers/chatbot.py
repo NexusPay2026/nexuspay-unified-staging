@@ -40,7 +40,7 @@ import httpx
 logger = logging.getLogger("calcerta_chatbot")
 logger.setLevel(logging.INFO)
 
-router = APIRouter(prefix="/api/chatbot", tags=["chatbot"])
+router = APIRouter(prefix="/chatbot", tags=["chatbot"])
 
 
 # ============================================================
