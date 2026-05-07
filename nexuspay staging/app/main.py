@@ -16,7 +16,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import engine, Base, database
-from app.routers import auth, merchants, users, visitors, audit, health, storage, quotes, pricing_tool
+from app.routers import auth, merchants, users, visitors, audit, health, storage, quotes, pricing_tool, chatbot
 
 # â”€â”€ Lifespan â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 @asynccontextmanager
@@ -51,6 +51,9 @@ ALLOWED_ORIGINS = [
     "https://nexuspaydashboard.netlify.app",
     # 5. Pricing Tool
 "https://paycalculator.nexuspayai.com",
+    # 6. Calcerta Group / Interstellar I.S. customer-facing site
+    "https://isinterstellar.com",
+    "https://www.isinterstellar.com",
     # Dev
     "http://localhost:3000",
     "http://localhost:5173",
@@ -64,6 +67,7 @@ if settings.APP_ENV == "development":
 app.add_middleware(
     CORSMiddleware,
     allow_origins=ALLOWED_ORIGINS,
+    allow_origin_regex=r"https://.*\.netlify\.app",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -79,5 +83,6 @@ app.include_router(audit.router,     prefix="/api",  tags=["AI Audit"])
 app.include_router(storage.router,   prefix="/api",  tags=["Storage / R2"])
 app.include_router(quotes.router,    prefix="/api",  tags=["Pricing Quotes"])
 app.include_router(pricing_tool.router, tags=["Pricing Tool"])
+app.include_router(chatbot.router,   prefix="/api",  tags=["Chatbot"])
 
 
